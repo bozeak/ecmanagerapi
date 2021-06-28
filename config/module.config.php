@@ -5,56 +5,63 @@ namespace Inlead;
 use Inlead\Controller\AbstractBaseFactory;
 use Laminas\Router\Http\Literal;
 use Laminas\Router\Http\Method;
+use Laminas\Router\Http\Segment;
 
 $config = [
     'router' => [
         'routes' => [
-            'inlead-manager' => [
+            'inlead.manager' => [
                 'type' => Literal::class,
                 'options' => [
                     'verb' => 'get',
-                    'route' => '/api/v1/manager',
+                    'route' => '/api/manager',
                     'defaults' => [
                         'controller' => Controller\ManagerAPIController::class,
                         'action' => 'getList'
                     ]
                 ],
-//                'may_terminate' => true,
-//                'child_routes' => [
-            ],
-            'inlead-manager-details' => [
-                'type' => 'segment',
-                'options' => [
-                    'verb' => 'get',
-                    'route' => '/api/v1/manager/:id',
-                    'constraints' => [
-                        'id' => '\d+',
+                'may_terminate' => true,
+                'child_routes' => [
+                    'details' => [
+                        'type' => Segment::class,
+                        'options' => [
+                            'verb' => 'get',
+                            'route' => '/:id',
+                            'constraints' => [
+                                'id' => '\d+',
+                            ],
+                        ],
                     ],
-                    'defaults' => [
-                        'controller' => Controller\ManagerAPIController::class,
-                        'action' => 'getList'
-                    ]
+
                 ],
             ],
-            'inlead-manager-create' => [
+            'inlead.manager.create' => [
                 'type' => Method::class,
                 'options' => [
                     'verb' => 'post',
-                    'route' => '/api/v1/manager/create',
+                    'route' => '/api/manager/create',
                     'defaults' => [
                         'controller' => Controller\ManagerAPIController::class,
                         'action' => 'create'
                     ],
                 ],
             ],
-            'inlead-manager-destroy' => [
+            'inlead.manager.update' => [
+                'type' => Method::class,
+                'options' => [
+                    'verb' => 'put',
+                    'route' => '/api/manager/update',
+                    'defaults' => [
+                        'controller' => Controller\ManagerAPIController::class,
+                        'action' => 'update'
+                    ],
+                ],
+            ],
+            'inlead.manager.destroy' => [
                 'type' => 'method',
                 'options' => [
                     'verb' => 'delete',
-                    'route' => '/api/v1/manager/:id',
-                    'constraints' => [
-                        'id' => '\d+',
-                    ],
+                    'route' => '/api/manager',
                     'defaults' => [
                         'controller' => Controller\ManagerAPIController::class,
                         'action' => 'destroy'

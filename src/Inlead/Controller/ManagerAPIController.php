@@ -3,6 +3,9 @@
 
 namespace Inlead\Controller;
 
+use Exception;
+use Inlead\Db\Table\PluginManager;
+use JsonException;
 use Laminas\Mvc\Controller\AbstractActionController;
 use Laminas\ServiceManager\ServiceLocatorInterface;
 use VuFindApi\Controller\ApiInterface;
@@ -30,94 +33,114 @@ class ManagerAPIController extends AbstractActionController implements ApiInterf
         $this->serviceLocator = $sm;
     }
 
-    public function getListAction($aaaa = null)
+    /**
+     * @return \Laminas\Http\Response
+     * @throws Exception
+     */
+    public function getListAction()
     {
-        $asdf = $this->serviceLocator->get(\Inlead\Db\Table\PluginManager::class)
-            ->get('consumer');
+        $service = $this->serviceLocator->get(PluginManager::class)
+            ->get('Consumer');
 
-        $consumers = [];
+        $id = (int) $this->params()->fromRoute('id');
 
-//        dd($this->serviceLocator->get('router'));
-        $id = $this->params()->fromRoute('id');
-//        dd($aaaa, $id);
-
-        if (empty($id)) {
-            $data = $asdf->select();
-        }
-        else {
-            $data = $asdf->select(['id' => $id]);
-        }
-
-        foreach ($data as $item) {
-            $consumers[] = $item->toArray();
+        $data = $service->getAllConsumers();
+        if (!empty($id)) {
+            $data = $service->getConsumer($id);
         }
 
         $response = [
-            'consumers' => $consumers
+            'consumers' => $data->toArray(),
+            'count' => count($data),
         ];
-        return $this->output($response, self::STATUS_OK);
+
+        return $this->output(
+            $response,
+            self::STATUS_OK,
+            200
+        );
     }
 
+    /**
+     * @return \Laminas\Http\Response
+     * @throws JsonException
+     */
     public function createAction()
     {
         $content = $this->request->getContent();
 
-        $data = json_decode($content);
+        $data = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
 
-        $data = [
-            'name' => $data->name,
-            'source_url' => $data->source_url
-        ];
-
-        $asdf = $this->serviceLocator->get(\Inlead\Db\Table\PluginManager::class)
-            ->get('consumer');
+        $service = $this->serviceLocator->get(PluginManager::class)
+            ->get('Consumer');
 
         try {
-//            dd($data);
-            $asdf->insert($data);
-        }
-        catch (\Exception $e) {
+            $consumer = $service->createConsumer($data);
+        } catch (Exception $e) {
             print_r($e->getMessage());
         }
 
-        return $this->output(['message' => 'Created.'], self::STATUS_OK);
+        return $this->output(
+            [
+                'message' => 'Created.',
+                'consumer' => $consumer->toArray()
+            ],
+            self::STATUS_OK,
+            201
+        );
     }
 
+    /**
+     * @return \Laminas\Http\Response
+     * @throws Exception
+     */
     public function destroyAction()
     {
-        $id = $this->params()->fromRoute();
+        if ($this->request->isDelete()) {
+            $req_body = $this->getRequest()->getContent();
 
-        if (!empty($id)) {
-            $asdf = $this->serviceLocator->get(\Inlead\Db\Table\PluginManager::class)
-                ->get('consumer');
+            $body = (array)json_decode($req_body);
+            $service = $this->serviceLocator->get(PluginManager::class)
+                ->get('Consumer');
 
-            $asdf->delete(['id' => $id]);
+            $service->deleteConsumer($body['id']);
 
-            return $this->output(['message' => 'Consumer deleted.'], self::STATUS_OK);
+            return $this->output(
+                [
+                    'message' => 'Consumer deleted.'
+                ],
+                self::STATUS_OK
+            );
         }
     }
 
-//    public function showAction()
-//    {
-//        $id = $this->params('id');
-//        $asdf = $this->serviceLocator->get(\Inlead\Db\Table\PluginManager::class)
-//            ->get('Consumer');
-//
-//        $req = $asdf->select(['id' => $id])->current()->toArray();
-//
-//        return $this->output(['data' => $req] , self::STATUS_OK);
-//    }
+    /**
+     * @return \Laminas\Http\Response
+     * @throws Exception
+     */
+    public function updateAction()
+    {
+        if ($this->request->isPut()) {
+            $req_body = $this->getRequest()->getContent();
+            $body = (array) json_decode($req_body);
+            $service = $this->serviceLocator->get(PluginManager::class)
+                ->get('Consumer');
 
-//    public function updateAction()
-//    {
-//        $id = $this->params('id');
-//        $asdf = $this->serviceLocator->get(\Inlead\Db\Table\PluginManager::class)
-//            ->get('Consumer');
-//
-//        $req = $asdf->select(['id' => $id])->current()->toArray();
-//
-//        return $this->output(['data' => 'Consumer updated'], self::STATUS_OK);
-//    }
+            try {
+                $consumer = $service->updateConsumer($body['id'], $body);
+            } catch (Exception $e) {
+                echo $e->getMessage();
+            }
+
+            return $this->output(
+                [
+                    'message' => 'Consumer updated.',
+                    'consumer' => $consumer->toArray()
+                ],
+                self::STATUS_OK
+            );
+        }
+    }
 
     public function getSwaggerSpecFragment()
     {

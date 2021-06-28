@@ -27,6 +27,9 @@
  */
 namespace Inlead\Db\Row;
 
+use VuFind\Db\Table\DbTableAwareInterface;
+use VuFind\Db\Table\DbTableAwareTrait;
+
 /**
  * Row Definition for comments
  *
@@ -36,8 +39,11 @@ namespace Inlead\Db\Row;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Site
  */
-class Consumer extends RowGateway
+class Consumer extends RowGateway implements DbTableAwareInterface
 {
+
+    use DbTableAwareTrait;
+
     /**
      * Constructor
      *
@@ -47,5 +53,4 @@ class Consumer extends RowGateway
     {
         parent::__construct('id', 'inlead_consumer', $adapter);
     }
-
 }

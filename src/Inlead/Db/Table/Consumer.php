@@ -28,9 +28,8 @@
 namespace Inlead\Db\Table;
 
 use Laminas\Db\Adapter\Adapter;
-use Laminas\Db\Sql\Expression;
-use Laminas\Db\Sql\Select;
 use Inlead\Db\Row\RowGateway;
+use VuFind\Db\Table\DbTableAwareTrait;
 
 /**
  * Table Definition for comments
@@ -43,6 +42,8 @@ use Inlead\Db\Row\RowGateway;
  */
 class Consumer extends Gateway
 {
+    use DbTableAwareTrait;
+
     /**
      * Constructor
      *
@@ -58,102 +59,57 @@ class Consumer extends Gateway
         parent::__construct($adapter, $tm, $cfg, $rowObj, $table);
     }
 
-//    /**
-//     * Get tags associated with the specified resource.
-//     *
-//     * @param string $id     Record ID to look up
-//     * @param string $source Source of record to look up
-//     *
-//     * @return array|\Laminas\Db\ResultSet\AbstractResultSet
-//     */
-//    public function getForResource($id, $source = DEFAULT_SEARCH_BACKEND)
-//    {
-//        $resourceTable = $this->getDbTable('Resource');
-//        $resource = $resourceTable->findResource($id, $source, false);
-//        if (empty($resource)) {
-//            return [];
-//        }
-//
-//        $callback = function ($select) use ($resource) {
-//            $select->columns([Select::SQL_STAR]);
-//            $select->join(
-//                ['u' => 'user'], 'u.id = comments.user_id',
-//                ['firstname', 'lastname'],
-//                $select::JOIN_LEFT
-//            );
-//            $select->where->equalTo('comments.resource_id', $resource->id);
-//            $select->order('comments.created');
-//        };
-//
-//        return $this->select($callback);
-//    }
-//
-//    /**
-//     * Delete a comment if the owner is logged in.  Returns true on success.
-//     *
-//     * @param int                 $id   ID of row to delete
-//     * @param \VuFind\Db\Row\User $user Logged in user object
-//     *
-//     * @return bool
-//     */
-//    public function deleteIfOwnedByUser($id, $user)
-//    {
-//        // User must be object with ID:
-//        if (!is_object($user) || !isset($user->id)) {
-//            return false;
-//        }
-//
-//        // Comment row must exist:
-//        $matches = $this->select(['id' => $id]);
-//        if (count($matches) == 0 || !($row = $matches->current())) {
-//            return false;
-//        }
-//
-//        // Row must be owned by user:
-//        if ($row->user_id != $user->id) {
-//            return false;
-//        }
-//
-//        // If we got this far, everything is okay:
-//        $row->delete();
-//        return true;
-//    }
-//
-//    /**
-//     * Deletes all comments by a user.
-//     *
-//     * @param \VuFind\Db\Row\User $user User object
-//     *
-//     * @return void
-//     */
-//    public function deleteByUser($user)
-//    {
-//        $this->delete(['user_id' => $user->id]);
-//    }
-//
-//    /**
-//     * Get statistics on use of comments.
-//     *
-//     * @return array
-//     */
-//    public function getStatistics()
-//    {
-//        $select = $this->sql->select();
-//        $select->columns(
-//            [
-//                'users' => new Expression(
-//                    'COUNT(DISTINCT(?))', ['user_id'],
-//                    [Expression::TYPE_IDENTIFIER]
-//                ),
-//                'resources' => new Expression(
-//                    'COUNT(DISTINCT(?))', ['resource_id'],
-//                    [Expression::TYPE_IDENTIFIER]
-//                ),
-//                'total' => new Expression('COUNT(*)')
-//            ]
-//        );
-//        $statement = $this->sql->prepareStatementForSqlObject($select);
-//        $result = $statement->execute();
-//        return (array)$result->current();
-//    }
+    /**
+     * @inheritDoc
+     */
+    public function getDbTable($table)
+    {
+        return $this->getDbTableManager()->get($table);
+    }
+
+    /**
+     * @return \Laminas\Db\ResultSet\ResultSetInterface|null
+     */
+    public function getAllConsumers()
+    {
+        return $this->select();
+    }
+
+    /**
+     * @param $id
+     * @return \Laminas\Db\ResultSet\ResultSetInterface|null
+     */
+    public function getConsumer($id)
+    {
+        return $this->select(['id' => $id]);
+    }
+
+    /**
+     * @param $consumer
+     * @return \Laminas\Db\ResultSet\ResultSetInterface|null
+     */
+    public function createConsumer($consumer)
+    {
+        $this->insert((array) $consumer);
+        return $this->getConsumer($this->getLastInsertValue());
+    }
+
+    /**
+     * @param $id
+     * @param $consumer
+     * @return \Laminas\Db\ResultSet\ResultSetInterface|null
+     */
+    public function updateConsumer($id, $consumer)
+    {
+        $this->update((array) $consumer, ['id' => $id]);
+        return $this->getConsumer($id);
+    }
+
+    /**
+     * @param $id
+     */
+    public function deleteConsumer($id)
+    {
+        $this->delete(['id' => $id]);
+    }
 }
