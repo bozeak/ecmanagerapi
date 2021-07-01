@@ -31,8 +31,7 @@ $config = [
                                 'id' => '\d+',
                             ],
                         ],
-                    ],
-
+                    ]
                 ],
             ],
             'inlead.manager.create' => [
@@ -65,6 +64,16 @@ $config = [
                     'defaults' => [
                         'controller' => Controller\ManagerAPIController::class,
                         'action' => 'destroy'
+                    ],
+                ],
+            ],
+            'inlead.manager.import.harvest' => [
+                'type' => Literal::class,
+                'options' => [
+                    'route' => '/api/manager/start-import',
+                    'defaults' => [
+                        'controller' => Controller\ManagerAPIController::class,
+                        'action' => 'startImport',
                     ],
                 ],
             ]

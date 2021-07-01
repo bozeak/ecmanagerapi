@@ -6,15 +6,18 @@ namespace Inlead\Controller;
 use Exception;
 use Inlead\Db\Table\PluginManager;
 use JsonException;
+use Laminas\Http\Client;
+use Laminas\Http\Response;
 use Laminas\Mvc\Controller\AbstractActionController;
 use Laminas\ServiceManager\ServiceLocatorInterface;
 use VuFindApi\Controller\ApiInterface;
 use VuFindApi\Controller\ApiTrait;
+use VuFindHarvest\OaiPmh\Harvester;
+use VuFindHarvest\OaiPmh\HarvesterFactory;
 
 class ManagerAPIController extends AbstractActionController implements ApiInterface
 {
     use ApiTrait;
-
 
     /**
      * Service manager
@@ -34,7 +37,7 @@ class ManagerAPIController extends AbstractActionController implements ApiInterf
     }
 
     /**
-     * @return \Laminas\Http\Response
+     * @return Response
      * @throws Exception
      */
     public function getListAction()
@@ -42,7 +45,7 @@ class ManagerAPIController extends AbstractActionController implements ApiInterf
         $service = $this->serviceLocator->get(PluginManager::class)
             ->get('Consumer');
 
-        $id = (int) $this->params()->fromRoute('id');
+        $id = (int)$this->params()->fromRoute('id');
 
         $data = $service->getAllConsumers();
         if (!empty($id)) {
@@ -62,36 +65,38 @@ class ManagerAPIController extends AbstractActionController implements ApiInterf
     }
 
     /**
-     * @return \Laminas\Http\Response
+     * @return Response
      * @throws JsonException
      */
     public function createAction()
     {
-        $content = $this->request->getContent();
+        if ($this->request->isPost()) {
+            $content = $this->request->getContent();
 
-        $data = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
+            $data = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
 
-        $service = $this->serviceLocator->get(PluginManager::class)
-            ->get('Consumer');
+            $service = $this->serviceLocator->get(PluginManager::class)
+                ->get('Consumer');
 
-        try {
-            $consumer = $service->createConsumer($data);
-        } catch (Exception $e) {
-            print_r($e->getMessage());
+            try {
+                $consumer = $service->createConsumer($data);
+            } catch (Exception $e) {
+                print_r($e->getMessage());
+            }
+
+            return $this->output(
+                [
+                    'message' => 'Created.',
+                    'consumer' => $consumer->toArray()
+                ],
+                self::STATUS_OK,
+                201
+            );
         }
-
-        return $this->output(
-            [
-                'message' => 'Created.',
-                'consumer' => $consumer->toArray()
-            ],
-            self::STATUS_OK,
-            201
-        );
     }
 
     /**
-     * @return \Laminas\Http\Response
+     * @return Response
      * @throws Exception
      */
     public function destroyAction()
@@ -115,14 +120,14 @@ class ManagerAPIController extends AbstractActionController implements ApiInterf
     }
 
     /**
-     * @return \Laminas\Http\Response
+     * @return Response
      * @throws Exception
      */
     public function updateAction()
     {
         if ($this->request->isPut()) {
             $req_body = $this->getRequest()->getContent();
-            $body = (array) json_decode($req_body);
+            $body = (array)json_decode($req_body);
             $service = $this->serviceLocator->get(PluginManager::class)
                 ->get('Consumer');
 
@@ -140,6 +145,26 @@ class ManagerAPIController extends AbstractActionController implements ApiInterf
                 self::STATUS_OK
             );
         }
+    }
+
+    /**
+     * Start harvesting.
+     * @throws Exception
+     */
+    public function startImportAction()
+    {
+        $service = $this->serviceLocator->get(PluginManager::class)
+            ->get('Consumer');
+        $consumers = $service->getAllConsumers()->toArray();
+
+        $harvester = new HarvesterFactory();
+        $client = new Client();
+        $settings = [
+            'url' => $consumers[0]['source_url'],
+        ];
+        $harvester->getHarvester($consumers[0]['name'], './local/harvest', $client, $settings);
+        $a = 1;
+        return $this->output(['asdfa' => 'wqerqw'], self::STATUS_OK);
     }
 
     public function getSwaggerSpecFragment()
