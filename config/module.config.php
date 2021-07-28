@@ -3,17 +3,17 @@
 namespace Inlead;
 
 use Inlead\Controller\AbstractBaseFactory;
+use Inlead\Controller\SearchAPIControllerFactory;
 use Laminas\Router\Http\Literal;
-use Laminas\Router\Http\Method;
 use Laminas\Router\Http\Segment;
+use VuFindApi\Controller\SearchApiController;
 
-$config = [
+return [
     'router' => [
         'routes' => [
             'inlead.manager' => [
                 'type' => Literal::class,
                 'options' => [
-                    'verb' => 'get',
                     'route' => '/api/manager',
                     'defaults' => [
                         'controller' => Controller\ManagerAPIController::class,
@@ -31,13 +31,12 @@ $config = [
                                 'id' => '\d+',
                             ],
                         ],
-                    ]
+                    ],
                 ],
             ],
             'inlead.manager.create' => [
-                'type' => Method::class,
+                'type' => Literal::class,
                 'options' => [
-                    'verb' => 'post',
                     'route' => '/api/manager/create',
                     'defaults' => [
                         'controller' => Controller\ManagerAPIController::class,
@@ -46,7 +45,7 @@ $config = [
                 ],
             ],
             'inlead.manager.update' => [
-                'type' => Method::class,
+                'type' => Literal::class,
                 'options' => [
                     'verb' => 'put',
                     'route' => '/api/manager/update',
@@ -57,37 +56,62 @@ $config = [
                 ],
             ],
             'inlead.manager.destroy' => [
-                'type' => 'method',
+                'type' => Literal::class,
                 'options' => [
                     'verb' => 'delete',
-                    'route' => '/api/manager',
+                    'route' => '/api/manager/destroy',
                     'defaults' => [
                         'controller' => Controller\ManagerAPIController::class,
                         'action' => 'destroy'
                     ],
                 ],
             ],
-            'inlead.manager.import.harvest' => [
-                'type' => Literal::class,
+            'inlead.harvester' => [
+                'type' => Segment::class,
                 'options' => [
-                    'route' => '/api/manager/start-import',
+                    'route' => '/api/:id/harvest',
                     'defaults' => [
-                        'controller' => Controller\ManagerAPIController::class,
-                        'action' => 'startImport',
+                        'controller' => Controller\HarvesterController::class,
+                        'action' => 'harvest',
                     ],
                 ],
-            ]
+            ],
+            'searchApiv1' => [
+                'type' => 'Laminas\Router\Http\Literal',
+                'verb' => 'get,post,options',
+                'options' => [
+                    'route'    => '/api/v1/search',
+                    'defaults' => [
+                        'controller' => Controller\SearchAPIController::class,
+                        'action'     => 'search',
+                    ]
+                ]
+            ],
+            'recordApiv1' => [
+                'type' => 'Laminas\Router\Http\Literal',
+                'verb' => 'get,post,options',
+                'options' => [
+                    'route'    => '/api/v1/record',
+                    'defaults' => [
+                        'controller' => Controller\SearchAPIController::class,
+                        'action'     => 'record',
+                    ]
+                ]
+            ],
         ],
     ],
 
     'controllers' => [
         'factories' => [
             Controller\ManagerAPIController::class => AbstractBaseFactory::class,
+            Controller\HarvesterController::class => AbstractBaseFactory::class,
+            Controller\SearchAPIController::class => SearchAPIControllerFactory::class,
         ],
     ],
     'service_manager' => [
         'allow_override' => true,
         'factories' => [
+            'Inlead\Formatter\MarcRecordFormatter' => 'Inlead\Formatter\MarcRecordFormatterFactory',
             'Inlead\Db\Table\PluginManager' => 'VuFind\ServiceManager\AbstractPluginManagerFactory',
             'Inlead\Db\Row\PluginManager' => 'VuFind\ServiceManager\AbstractPluginManagerFactory',
         ],
@@ -103,5 +127,3 @@ $config = [
         ]
     ],
 ];
-
-return $config;

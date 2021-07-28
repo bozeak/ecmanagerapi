@@ -101,16 +101,21 @@ class Module implements ConfigProviderInterface
 //        ];
 //    }
 //
-//    public function getControllerConfig()
-//    {
-//        return [
-//            'factories' => [
-//                Controller\ManagerAPIController::class => function($container) {
-//                    return new Controller\ManagerAPIController(
-//                        $container->get(Model\ConsumerTable::class)
-//                    );
-//                },
-//            ],
-//        ];
-//    }
+    public function getControllerConfig()
+    {
+        return [
+            'factories' => [
+                Controller\ManagerAPIController::class => function($container) {
+                    return new Controller\ManagerAPIController(
+                        $container->get(Model\Consumer::class)
+                    );
+                },
+                Controller\CreateConsumerController::class => function($container) {
+                    return new Controller\CreateConsumerController(
+                        $container->get(Model\Consumer::class)
+                    );
+                },
+            ],
+        ];
+    }
 }
