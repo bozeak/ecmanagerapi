@@ -4,6 +4,7 @@
 namespace Inlead\Formatter;
 
 use Laminas\View\HelperPluginManager;
+use stdClass;
 use VuFind\I18n\TranslatableString;
 use VuFind\RecordDriver\AbstractBase;
 use VuFindApi\Formatter\BaseFormatter;
@@ -48,28 +49,11 @@ class MarcRecordFormatter extends BaseFormatter
     }
 
     /**
-     * Get raw data for a record as an array
-     *
-     * @param \VuFind\RecordDriver\AbstractBase $record Record driver
-     *
-     * @return array
-     */
-    protected function getRawData($record)
-    {
-        $rawData = $record->tryMethod('getRawData');
-
-        // Leave out spelling data
-        unset($rawData['spelling']);
-
-        return $rawData;
-    }
-
-    /**
      * @param $results
      * @param $requestedFields
      * @param bool $processMarc
      * @param array $marcFields
-     * @return array|\stdClass
+     * @return array
      */
     public function format($results, $requestedFields, bool $processMarc = false, array $marcFields = [])
     {
@@ -78,50 +62,52 @@ class MarcRecordFormatter extends BaseFormatter
             $records[] = $this->getFields($result, $requestedFields);
         }
 
-        $marcRecords = new \stdClass();
+        $marcRecords = [];
         if (!empty($processMarc)) {
             foreach ($records as $key => $record) {
                 if (!isset($record['fullRecord'])) {
                     continue;
                 }
-                $marcRecords->{$key} = new \stdClass();
-                $marcRecords->{$key}->id = $records[$key]['id'];
+                $marcRecord = new stdClass();
+                $marcRecord->id = $record['id'];
                 $fullRecord = simplexml_load_string($record['fullRecord']);
 
                 $fields = [];
                 foreach ($fullRecord->record as $items) {
-                    $marcRecords->{$key}->leader = (string)$items->leader;
+                    $marcRecord->leader = (string)$items->leader;
 
                     foreach ($items as $type => $item) {
-                        $tag = (string)$item->attributes()['tag'];
+                        if ('controlfield' === $type || 'datafield' === $type) {
+                            $tag = (string)$item->attributes()['tag'];
 
-                        if (array_search($tag, array_column($marcFields, 'tag'))) {
-                            if ($type === 'controlfield' && $item->attributes() !== null) {
-                                $fields[][$tag] = (string)$item;
-                            }
+                            if (in_array($tag, array_column($marcFields, 'tag'), true)) {
+                                if ($type === 'controlfield' && $item->attributes() !== null) {
+                                    $fields[][$tag] = (string)$item;
+                                }
 
-                            if ($type === 'datafield') {
-                                $tags = [];
-                                foreach ($item as $i) {
-                                    $codes = (array)$i->attributes()['code'];
-                                    foreach ($codes as $attribute) {
-                                        if(!isset($marcFields[$tag]['codes'])
-                                            || (isset($marcFields[$tag]['codes']) && in_array($attribute, $marcFields[$tag]['codes'], true))) {
-                                            $tags['subfields'][$attribute] = (string)$i;
+                                if ($type === 'datafield') {
+                                    $tags = [];
+                                    foreach ($item as $i) {
+                                        $codes = (array)$i->attributes()['code'];
+                                        foreach ($codes as $attribute) {
+                                            if (!isset($marcFields[$tag]['codes'])
+                                                || (isset($marcFields[$tag]['codes']) && in_array($attribute, $marcFields[$tag]['codes'], true))) {
+                                                $tags['subfields'][$attribute] = (string)$i;
+                                            }
                                         }
                                     }
+                                    $fields[] = [
+                                        $tag => $tags,
+                                        "ind1" => (string)$item->attributes()['ind1'],
+                                        "ind2" => (string)$item->attributes()['ind2'],
+                                    ];
                                 }
-                                $fields[] = [
-                                    $tag => $tags,
-                                    "ind1" => (string)$item->attributes()['ind1'],
-                                    "ind2" => (string)$item->attributes()['ind2'],
-                                ];
                             }
                         }
-
                     }
                 }
-                $marcRecords->{$key}->fields = $fields;
+                $marcRecord->fields = $fields;
+                $marcRecords[] = $marcRecord;
             }
         }
 
@@ -175,6 +161,23 @@ class MarcRecordFormatter extends BaseFormatter
     }
 
     /**
+     * Get raw data for a record as an array
+     *
+     * @param AbstractBase $record Record driver
+     *
+     * @return array
+     */
+    protected function getRawData($record)
+    {
+        $rawData = $record->tryMethod('getRawData');
+
+        // Leave out spelling data
+        unset($rawData['spelling']);
+
+        return $rawData;
+    }
+
+    /**
      * Get full record for a record as XML
      *
      * @param AbstractBase $record Record driver
@@ -201,16 +204,6 @@ class MarcRecordFormatter extends BaseFormatter
     {
         $recordHelper = $this->helperManager->get('record');
         return $recordHelper($record)->getLinkDetails();
-    }
-
-    public function in_array_r($needle, $haystack, $strict = false) {
-        foreach ($haystack as $item) {
-            if (($strict ? $item === $needle : $item == $needle) || (is_array($item) && $this->in_array_r($needle, $item, $strict))) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
 }
