@@ -4,6 +4,7 @@
 namespace Inlead\Formatter;
 
 use Laminas\View\HelperPluginManager;
+use stdClass;
 use VuFind\I18n\TranslatableString;
 use VuFind\RecordDriver\AbstractBase;
 use VuFindApi\Formatter\BaseFormatter;
@@ -48,28 +49,11 @@ class MarcRecordFormatter extends BaseFormatter
     }
 
     /**
-     * Get raw data for a record as an array
-     *
-     * @param \VuFind\RecordDriver\AbstractBase $record Record driver
-     *
-     * @return array
-     */
-    protected function getRawData($record)
-    {
-        $rawData = $record->tryMethod('getRawData');
-
-        // Leave out spelling data
-        unset($rawData['spelling']);
-
-        return $rawData;
-    }
-
-    /**
      * @param $results
      * @param $requestedFields
      * @param bool $processMarc
      * @param array $marcFields
-     * @return array|\stdClass
+     * @return array|stdClass
      */
     public function format($results, $requestedFields, bool $processMarc = false, array $marcFields = [])
     {
@@ -78,13 +62,13 @@ class MarcRecordFormatter extends BaseFormatter
             $records[] = $this->getFields($result, $requestedFields);
         }
 
-        $marcRecords = new \stdClass();
+        $marcRecords = new stdClass();
         if (!empty($processMarc)) {
             foreach ($records as $key => $record) {
                 if (!isset($record['fullRecord'])) {
                     continue;
                 }
-                $marcRecords->{$key} = new \stdClass();
+                $marcRecords->{$key} = new stdClass();
                 $marcRecords->{$key}->id = $records[$key]['id'];
                 $fullRecord = simplexml_load_string($record['fullRecord']);
 
@@ -105,7 +89,7 @@ class MarcRecordFormatter extends BaseFormatter
                                 foreach ($item as $i) {
                                     $codes = (array)$i->attributes()['code'];
                                     foreach ($codes as $attribute) {
-                                        if(!isset($marcFields[$tag]['codes'])
+                                        if (!isset($marcFields[$tag]['codes'])
                                             || (isset($marcFields[$tag]['codes']) && in_array($attribute, $marcFields[$tag]['codes'], true))) {
                                             $tags['subfields'][$attribute] = (string)$i;
                                         }
@@ -174,6 +158,34 @@ class MarcRecordFormatter extends BaseFormatter
         return $result;
     }
 
+    public function in_array_r($needle, $haystack, $strict = false)
+    {
+        foreach ($haystack as $item) {
+            if (($strict ? $item === $needle : $item == $needle) || (is_array($item) && $this->in_array_r($needle, $item, $strict))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Get raw data for a record as an array
+     *
+     * @param AbstractBase $record Record driver
+     *
+     * @return array
+     */
+    protected function getRawData($record)
+    {
+        $rawData = $record->tryMethod('getRawData');
+
+        // Leave out spelling data
+        unset($rawData['spelling']);
+
+        return $rawData;
+    }
+
     /**
      * Get full record for a record as XML
      *
@@ -201,16 +213,6 @@ class MarcRecordFormatter extends BaseFormatter
     {
         $recordHelper = $this->helperManager->get('record');
         return $recordHelper($record)->getLinkDetails();
-    }
-
-    public function in_array_r($needle, $haystack, $strict = false) {
-        foreach ($haystack as $item) {
-            if (($strict ? $item === $needle : $item == $needle) || (is_array($item) && $this->in_array_r($needle, $item, $strict))) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
 }
