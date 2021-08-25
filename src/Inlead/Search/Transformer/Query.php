@@ -2,8 +2,10 @@
 
 namespace Inlead\Search\Transformer;
 
-use Inlead\Services\SearchQueryLexer;
-use Inlead\Services\SearchQueryParser;
+use Inlead\Query\AST\Node;
+use Inlead\Query\AST\SimpleQueryNode;
+use Inlead\Query\Lexer;
+use Inlead\Query\Parser;
 
 /**
  * Class Query
@@ -16,91 +18,112 @@ class Query
      */
     protected $string;
 
-    protected $conditions = [
-        'and' => 'and',
-        'or' => 'or',
-        'not' => 'not',
-    ];
-
-    protected $operands = [
-        '=' => '=',
-        '>' => '>',
-        '<' => '<',
-        'any' => 'any',
-    ];
+    /**
+     * @var
+     */
+    protected $mapping;
 
     /**
      * Query constructor.
      * @param $string
+     * @param $mapping
      */
-    public function __construct($string)
+    public function __construct($string, $mapping)
     {
         $this->string = $string;
+        $this->mapping = $mapping;
     }
 
     /**
      * Transform request query.
      *
-     * @param array $mapping
-     *
      * @return string|null
      */
-    public function transform(array $mapping)
+    public function transform(): ?string
     {
+        $lexer = new Lexer();
+        $ast = new Parser($lexer);
+        $parsed = $ast->parse($this->string);
 
-//        \bdc\.\w+\b
+        if (!$parsed instanceof Node) {
+            return $this->string;
+        }
+        return $this->buildString($parsed);
+    }
 
-        $lexer = new SearchQueryLexer();
-        $ast = new SearchQueryParser($lexer);
-        $parse = $ast->parse($this->string);
-
-        $a = 1;
-//        $conditions = implode(' | ', $this->conditions);
-//        preg_match("/ $conditions /", $this->string, $matchedConditions);
-//
-//        $asda = preg_split("/ $conditions /", $this->string);
-//
-//        $basda = [];
-//        $operands = implode(' | ', $this->operands);
-//        foreach ($asda as $item) {
-//            $basda[] = preg_split("/ $operands /", $item);
-//        }
-//
-//        $a = 1;
-        $match = preg_match('/dc./', $this->string);
-
-
-
-        if ($match) {
-            $split = explode(' ', $this->string);
-
-            foreach ($split as $key => $item) {
-                if (in_array(trim($item), $this->conditions)) {
-                    continue;
-                }
-
-                $item = str_replace('dc.', '', $item);
-
-                if (preg_match('/=/', $item)) {
-                    [$field, $search] = explode('=', $item);
-                } else {
-                    unset($field);
-                }
-
-                if (!empty($field) && $mapped = $mapping[$field]) {
-                    $solrFields = explode(', ', $mapped);
-
-                    $mapSearch = array_map(function ($i) use ($search) {
-                        return $i . ":" . $search;
-                    }, $solrFields);
-
-                    $queryBlock = implode(' OR ', $mapSearch);
-                    $split[$key] = '(' . $queryBlock . ')';
-                }
-                unset($mapped, $field);
+    /**
+     * @param $parsed
+     * @return string
+     */
+    protected function buildString($parsed): string
+    {
+        $ret = [];
+        foreach ($parsed->nodes as $node) {
+            if ($node instanceof SimpleQueryNode) {
+                $ret[] = $this->toString($node);
             }
 
-            return implode(' ', $split);
+            if ($node instanceof Node) {
+                $ret[] = $this->buildTerminals($node);
+            }
         }
+
+        return implode(" " . strtoupper($parsed->operator) . " ", $ret);
+    }
+
+    /**
+     * @param $node
+     * @return string
+     */
+    public function toString($node): string
+    {
+        if ($node instanceof Node) {
+            return $this->buildTerminals($node);
+        }
+        $identifier = $node->getIdentifier()->getValue();
+        $mapping = $this->processMapping();
+        if (isset($mapping[$identifier])) {
+            $variants = [];
+            foreach ($mapping[$identifier] as $item) {
+                $variants[] = $item . $node->getOperator()->getValue() . $node->getOperand()->getValue();
+            }
+
+            $return = implode(" OR ", $variants);
+            return sprintf("(%s)", $return);
+        }
+
+        return $node->getIdentifier()->getValue() . $node->getOperator()->getValue() . $node->getOperand()->getValue();
+    }
+
+    /**
+     * @param Node $nodes
+     * @return string
+     */
+    private function buildTerminals(Node $nodes): string
+    {
+        $ret = [];
+        foreach ($nodes->nodes as $node) {
+            $ret[] = $this->toString($node);
+        }
+
+        $string = implode(" " . strtoupper($nodes->operator) . " ", $ret);
+
+        if ($nodes->operator === 'or') {
+            $string = sprintf("(%s)", $string);
+        }
+        return $string;
+    }
+
+    /**
+     * @return array
+     */
+    private function processMapping(): array
+    {
+        $map = [];
+        foreach ($this->mapping as $field => $items) {
+            $map[$field] = explode(', ', $items);
+        }
+
+        return $map;
     }
 }

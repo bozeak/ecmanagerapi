@@ -214,9 +214,10 @@ class SearchAPIController extends \VuFind\Controller\AbstractSearch implements A
             $request['sort'] = 'relevance';
         }
 
-        $mapping = $this->getConfig('DCSolrMapping');
+        $mappingConfig = $this->getConfig('DCSolrMapping');
+        $mapping = $mappingConfig->get('Mapping')->toArray();
         if (isset($request['lookfor'])) {
-            $request['lookfor'] = (new Query($request['lookfor']))->transform($mapping->get('Mapping')->toArray()) ?? $request['lookfor'];
+            $request['lookfor'] = (new Query($request['lookfor'], $mapping))->transform() ?? $request['lookfor'];
         }
 
         $requestedFields = $this->getFieldList($request);
@@ -272,6 +273,7 @@ class SearchAPIController extends \VuFind\Controller\AbstractSearch implements A
         }
 
         $response = ['resultCount' => $results->getResultTotal()];
+        $response['query'] = $request['lookfor'];
 
         $processMarc = false;
         if (isset($request['outputFormat']) && $request['outputFormat'] === 'marcjson') {
