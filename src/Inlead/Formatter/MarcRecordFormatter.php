@@ -68,6 +68,7 @@ class MarcRecordFormatter extends BaseFormatter
                 if (!isset($record['fullRecord'])) {
                     continue;
                 }
+
                 $marcRecord = new stdClass();
                 $marcRecord->id = $record['id'];
                 $fullRecord = simplexml_load_string($record['fullRecord']);
@@ -158,6 +159,17 @@ class MarcRecordFormatter extends BaseFormatter
         );
 
         return $result;
+    }
+
+    public function in_array_r($needle, $haystack, $strict = false)
+    {
+        foreach ($haystack as $item) {
+            if (($strict ? $item === $needle : $item == $needle) || (is_array($item) && $this->in_array_r($needle, $item, $strict))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

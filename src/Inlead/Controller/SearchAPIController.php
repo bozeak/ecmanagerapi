@@ -4,6 +4,7 @@ namespace Inlead\Controller;
 
 use Exception;
 use Inlead\Formatter\MarcRecordFormatter;
+use Inlead\Search\Transformer\Query;
 use Laminas\Config\Config;
 use Laminas\EventManager\EventInterface;
 use Laminas\ServiceManager\ServiceLocatorInterface;
@@ -183,6 +184,10 @@ class SearchAPIController extends \VuFind\Controller\AbstractSearch implements A
         return $this->output($response, self::STATUS_OK);
     }
 
+    /**
+     * @return bool|\Laminas\Http\Response
+     * @throws Exception
+     */
     public function searchAction()
     {
         $this->disableSessionWrites();
@@ -207,6 +212,12 @@ class SearchAPIController extends \VuFind\Controller\AbstractSearch implements A
         // Sort by relevance by default
         if (!isset($request['sort'])) {
             $request['sort'] = 'relevance';
+        }
+
+        $mappingConfig = $this->getConfig('DCSolrMapping');
+        $mapping = $mappingConfig->get('Mapping')->toArray();
+        if (isset($request['lookfor'])) {
+            $request['lookfor'] = (new Query($request['lookfor'], $mapping))->transform() ?? $request['lookfor'];
         }
 
         $requestedFields = $this->getFieldList($request);
@@ -262,9 +273,10 @@ class SearchAPIController extends \VuFind\Controller\AbstractSearch implements A
         }
 
         $response = ['resultCount' => $results->getResultTotal()];
+        $response['query'] = $request['lookfor'];
 
         $processMarc = false;
-        if (isset($request['outputFormat']) && $request['outputFormat'] == 'marcjson') {
+        if (isset($request['outputFormat']) && $request['outputFormat'] === 'marcjson') {
             $processMarc = true;
             $requestedFields = ['id', 'fullRecord'];
         }
