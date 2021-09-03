@@ -2,10 +2,18 @@
 
 namespace Inlead\Search\Transformer;
 
-use Inlead\Query\AST\Node;
-use Inlead\Query\AST\SimpleQueryNode;
-use Inlead\Query\Lexer;
-use Inlead\Query\Parser;
+use Inlead\Search\Transformer\TokenExtractor\Full;
+use QueryTranslator\Languages\Galach\Generators\Common\Aggregate;
+use QueryTranslator\Languages\Galach\Generators\Native;
+use QueryTranslator\Languages\Galach\Generators\Native\BinaryOperator;
+use QueryTranslator\Languages\Galach\Generators\Native\Group;
+use QueryTranslator\Languages\Galach\Generators\Native\Phrase;
+use QueryTranslator\Languages\Galach\Generators\Native\Tag;
+use QueryTranslator\Languages\Galach\Generators\Native\UnaryOperator;
+use QueryTranslator\Languages\Galach\Generators\Native\User;
+use QueryTranslator\Languages\Galach\Generators\Native\Word;
+use QueryTranslator\Languages\Galach\Parser;
+use QueryTranslator\Languages\Galach\Tokenizer;
 
 /**
  * Class Query
@@ -41,89 +49,28 @@ class Query
      */
     public function transform(): ?string
     {
-        $lexer = new Lexer();
-        $ast = new Parser($lexer);
-        $parsed = $ast->parse($this->string);
+        $tokenExtractor = new Full();
+        $tokenizer = new Tokenizer($tokenExtractor);
+        $parser = new Parser();
 
-        if (!$parsed instanceof Node) {
-            return $this->string;
-        }
-        return $this->buildString($parsed);
-    }
+        $nativeGenerator = new Native(
+            new Aggregate(
+                [
+                    new Group(),
+                    new BinaryOperator(),
+                    new UnaryOperator(),
+                    new Phrase(),
+                    new \QueryTranslator\Languages\Galach\Generators\Native\Query(),
+                    new Tag(),
+                    new Word(),
+                    new User(),
+                ]
+            )
+        );
 
-    /**
-     * @param $parsed
-     * @return string
-     */
-    protected function buildString($parsed): string
-    {
-        $ret = [];
-        foreach ($parsed->nodes as $node) {
-            if ($node instanceof SimpleQueryNode) {
-                $ret[] = $this->toString($node);
-            }
+        $tokenSequence = $tokenizer->tokenize($this->string);
+        $syntaxTree = $parser->parse($tokenSequence);
 
-            if ($node instanceof Node) {
-                $ret[] = $this->buildTerminals($node);
-            }
-        }
-
-        return implode(" " . strtoupper($parsed->operator) . " ", $ret);
-    }
-
-    /**
-     * @param $node
-     * @return string
-     */
-    public function toString($node): string
-    {
-        if ($node instanceof Node) {
-            return $this->buildTerminals($node);
-        }
-        $identifier = $node->getIdentifier()->getValue();
-        $mapping = $this->processMapping();
-        if (isset($mapping[$identifier])) {
-            $variants = [];
-            foreach ($mapping[$identifier] as $item) {
-                $variants[] = $item . $node->getOperator()->getValue() . $node->getOperand()->getValue();
-            }
-
-            $return = implode(" OR ", $variants);
-            return sprintf("(%s)", $return);
-        }
-
-        return $node->getIdentifier()->getValue() . $node->getOperator()->getValue() . $node->getOperand()->getValue();
-    }
-
-    /**
-     * @param Node $nodes
-     * @return string
-     */
-    private function buildTerminals(Node $nodes): string
-    {
-        $ret = [];
-        foreach ($nodes->nodes as $node) {
-            $ret[] = $this->toString($node);
-        }
-
-        $string = implode(" " . strtoupper($nodes->operator) . " ", $ret);
-
-        if ($nodes->operator === 'or') {
-            $string = sprintf("(%s)", $string);
-        }
-        return $string;
-    }
-
-    /**
-     * @return array
-     */
-    private function processMapping(): array
-    {
-        $map = [];
-        foreach ($this->mapping as $field => $items) {
-            $map[$field] = explode(', ', $items);
-        }
-
-        return $map;
+        return $nativeGenerator->generate($syntaxTree);
     }
 }
