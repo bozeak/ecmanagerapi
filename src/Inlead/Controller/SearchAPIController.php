@@ -370,11 +370,14 @@ class SearchAPIController extends \VuFind\Controller\AbstractSearch implements A
     /**
      * Align filter fields with SOLR fields.
      *
-     * @return array
+     * @return array|null
      */
-    public function replaceFilters(): array
+    public function replaceFilters(): ?array
     {
         $filters = $this->getRequest()->getQuery()->get('filter');
+        if (empty($filters)) {
+            return null;
+        }
         $mappingConfig = $this->getConfig('DCSolrMapping');
         $mapping = $mappingConfig->get('Mapping')->toArray();
         foreach ($filters as $key => $filter) {
