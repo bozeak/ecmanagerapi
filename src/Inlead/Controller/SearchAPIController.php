@@ -6,16 +6,12 @@ use Exception;
 use Inlead\Formatter\MarcRecordFormatter;
 use Inlead\Search\Transformer\Query;
 use Laminas\Config\Config;
-use Laminas\EventManager\EventInterface;
 use Laminas\ServiceManager\ServiceLocatorInterface;
-use SerialsSolutions\Summon\Laminas;
-use stdClass;
 use VuFind\Search\EmptySet\Results;
 use VuFind\Search\SearchRunner;
 use VuFindApi\Controller\ApiInterface;
 use VuFindApi\Controller\ApiTrait;
 use VuFindApi\Formatter\FacetFormatter;
-use VuFindApi\Formatter\RecordFormatter;
 
 class SearchAPIController extends \VuFind\Controller\AbstractSearch implements ApiInterface
 {
@@ -222,6 +218,10 @@ class SearchAPIController extends \VuFind\Controller\AbstractSearch implements A
 
         $requestedFields = $this->getFieldList($request);
 
+        // Filters.
+        $request['filter'] = $this->replaceFilters();
+
+        // Facets.
         $facetConfig = $this->getConfig('facets');
         $hierarchicalFacets = isset($facetConfig->SpecialFacets->hierarchical)
             ? $facetConfig->SpecialFacets->hierarchical->toArray()
@@ -233,7 +233,6 @@ class SearchAPIController extends \VuFind\Controller\AbstractSearch implements A
 
         $request['facet'] = isset($request['facet']) ? array_merge($request['facet'], array_keys($defaultFacets)) : array_keys($defaultFacets);
         $requestedFacets = $request['facet'] ?? array_keys($defaultFacets);
-
 
         /** @var SearchRunner $runner */
         $runner = $this->serviceLocator->get(SearchRunner::class);
@@ -366,5 +365,30 @@ class SearchAPIController extends \VuFind\Controller\AbstractSearch implements A
         }
 
         return $facetList;
+    }
+
+    /**
+     * Align filter fields with SOLR fields.
+     *
+     * @return array
+     */
+    public function replaceFilters(): array
+    {
+        $filters = $this->getRequest()->getQuery()->get('filter');
+        $mappingConfig = $this->getConfig('DCSolrMapping');
+        $mapping = $mappingConfig->get('Mapping')->toArray();
+        foreach ($filters as $key => $filter) {
+            $keys = array_keys($mapping);
+            $split = explode(':', $filter);
+
+            if (in_array($split[0], $keys)) {
+                $found = explode(',', $mapping[$split[0]]);
+                $filters[$key] = $found[0] . ':' . $split[1];
+            }
+            else {
+                $filters[$key] = implode(':', $split);
+            }
+        }
+        return $filters;
     }
 }
